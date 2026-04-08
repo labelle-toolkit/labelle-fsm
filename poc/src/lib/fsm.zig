@@ -183,6 +183,30 @@ pub fn StateMachine(
             }
         }
 
+        // TODO(v0.2): Graphviz export. Deferred — see RFC Q5 for the
+        // re-evaluation triggers. When implementing, the shape is roughly:
+        //
+        //   pub fn toDot(self: Self, writer: anytype) !void {
+        //       try writer.print("digraph {s} {{\n", .{@typeName(State)});
+        //       for (self.transitions, 0..) |t, i| {
+        //           try writer.print("  {s} -> {s}", .{ @tagName(t.from), @tagName(t.to) });
+        //           if (t.event) |e| {
+        //               try writer.print(" [label=\"on .{s}\"]", .{@tagName(e)});
+        //           } else if (t.guard != null) {
+        //               try writer.print(" [label=\"guard t[{d}]\"]", .{i});
+        //           }
+        //           try writer.writeAll(";\n");
+        //       }
+        //       try writer.writeAll("}\n");
+        //   }
+        //
+        // Tests: pin the output for a small machine via snapshot comparison.
+        // The transitions slice is `pub const` on the machine instance, so
+        // any game that wants a diagram today can walk it directly without
+        // this helper — the helper is purely a convenience. Guards don't
+        // carry names at runtime, so the label falls back to the transition
+        // index. Event labels come from @tagName on the Event enum.
+
         fn multiMatchPanic(
             state_name: []const u8,
             winner_idx: usize,
