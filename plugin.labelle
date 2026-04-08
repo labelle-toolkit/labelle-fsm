@@ -1,0 +1,18 @@
+// labelle-fsm plugin manifest. Read by labelle-cli at `labelle generate`
+// time when this plugin is declared in a game's project.labelle .plugins
+// list. Tells the CLI to copy the consuming game's `state_machines/`
+// directory into the generated build target.
+//
+// Requires labelle-cli with plugin manifest support — see
+// labelle-cli/docs/RFC-plugin-manifest.md.
+.{
+    .name = "fsm",
+    .manifest_version = 1,
+    .convention_dirs = .{
+        .{
+            .name = "state_machines",
+            .extension = ".zig",
+            .mode = .copy_and_scan,
+        },
+    },
+}
