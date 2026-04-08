@@ -1,0 +1,17 @@
+.{
+    .name = .fsm_poc,
+    .version = "0.0.0",
+    .fingerprint = 0x685f5a1ca3787df5,
+    .minimum_zig_version = "0.15.2",
+    .dependencies = .{
+        .zig_ecs = .{
+            .url = "git+https://github.com/prime31/zig-ecs#dbf3647c2cc4f327fe87067e40f8436c7f87f209",
+            .hash = "entt-1.0.0-qJPtbNLVAgDPXaUbyRSsBTK75Cr1WujUA92kToJugWry",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
