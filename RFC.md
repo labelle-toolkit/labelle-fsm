@@ -1,9 +1,10 @@
 # RFC: labelle-fsm — a serializable, comptime state-machine library
 
-**Status:** Draft for discussion
+**Status:** Ready for implementation, pending `labelle-cli/docs/RFC-plugin-manifest.md`
 **Scope:** New `labelle-fsm` plugin, sibling to `labelle-core`, `labelle-engine`, `labelle-gfx`, `labelle-imgui`, `labelle-cli`
 **Related:** [flying-platform-labelle#51](https://github.com/Flying-Platform/flying-platform-labelle/issues/51), `flying-platform-labelle/docs/INVESTIGATION-zigfsm.md`, `flying-platform-labelle/docs/RFC-hunger-manager.md`
 **Depends on:** `labelle-cli/docs/RFC-plugin-manifest.md` — labelle-fsm ships a `plugin.labelle` declaring `state_machines/` as a convention directory, and the CLI needs to understand that manifest
+**Validated by:** `poc/` — runnable proof-of-concept against `zig-ecs`. 8/8 library tests passing, full example scenario runs end-to-end (`zig build run` in `poc/`)
 
 ---
 
@@ -44,7 +45,7 @@ Today we hand-roll each machine as a `switch` over a `u8` phase field. This work
 
 ### Nice-to-have
 
-- **N1.** A `Graphviz` export — walk `transitions` at comptime or runtime and spit out DOT. Useful for RFC diagrams and onboarding docs.
+- **N1.** A `Graphviz` export — walk `transitions` at comptime or runtime and spit out DOT. Useful for RFC diagrams and onboarding docs. **Deferred to v0.2 — see Q5 for the re-evaluation triggers.**
 - **N2.** A `validate` helper that comptime-checks properties (no unreachable states, no transitions from a non-enum value, optionally a "every state is reachable from the initial state" assertion).
 - **N3.** An `advanceAll(&state, ctx, max_iter)` helper that keeps calling `advance` until no transition fires, bounded by `max_iter` so a misconfigured machine can't hang a frame.
 - **N4.** A `transitionsFrom(state) []const Transition` helper for writing tests and gizmos that want to query the shape of the machine.
@@ -604,9 +605,22 @@ If we can hook into `Saveable.postLoad`, we could call `enter()` automatically a
 
 ### Q5. Graphviz export — nice-to-have now or defer?
 
-Walking the transitions array and printing DOT is ~20 lines. The real cost is documenting how to run it and integrating it with a docs build. Low value right now; high value if we start drawing gameplay flow diagrams for designer conversations.
+**Decision:** defer. Do not implement `toDot` in v1. Do not even stub the signature. **Closed.**
 
-**Preference:** defer. Stub out the function signature (`pub fn toDot(writer: anytype) !void`) but leave it unimplemented until someone actually wants the diagram.
+Rationale:
+
+- **No consumer.** No docs pipeline, no CI step that renders machines, no designer asking for diagrams. The output would be text nobody reads.
+- **Snapshot test churn.** A good DOT test pins the output, which creates "snapshot out of date" noise every time anyone adds or reorders a transition.
+- **Lock-in.** Once the format ships, downstream scripts may start parsing it, making format changes breaking.
+- **`transitions` is already public.** Any game can walk `machine.transitions` directly in a 20-line script and print whatever format they want. We haven't hidden anything — we've just chosen not to bless one particular format as load-bearing yet.
+
+**On-ramp for the first implementer:** `src/lib/fsm.zig` carries a commented-out sketch of `toDot` (format, loop shape, where event/guard labels go) under the `StateMachine` struct. When we do implement it, the design work is already done; only the 25–35 lines of `writer.print` calls remain.
+
+**Re-evaluation triggers:**
+1. We have 4+ machines in `state_machines/` and someone asks for a diagram of the gameplay flow.
+2. A docs pipeline lands (in the game repo or labelle-engine) that can consume DOT output as part of a docs build.
+
+Whichever comes first, the implementer reads the sketch comment, writes the function, bumps labelle-fsm to v0.2.0.
 
 ### Q6. Should we migrate `HungerCarry` / `Sleeping` / `Delivering` all at once, or one at a time?
 
@@ -653,19 +667,29 @@ This rollout has an **upstream dependency on the labelle-cli plugin-manifest RFC
 
 ## Next steps for this RFC
 
-Open questions that still need a decision:
+**All design questions closed.** The RFC is ready for implementation once its upstream dependency (`labelle-cli/docs/RFC-plugin-manifest.md`) lands.
 
-- [ ] **Q5** — Graphviz export in v1 or deferred?
+Closed decisions:
 
-Closed:
+- [x] **Q1** — labelle-fsm is a plugin, sibling to labelle-core, ships a `plugin.labelle` manifest declaring `state_machines/`. Depends on `labelle-cli/docs/RFC-plugin-manifest.md`.
+- [x] **Q2** — Context passed by value. Enforces "no transient state in Context" at the type level.
+- [x] **Q3** — first-match-wins at runtime + debug-mode exhaustive multi-match assertion + `overlap_allowed` opt-out. Most of the problem dissolves once events are first-class (see Proposed API).
+- [x] **Q4** — caller-explicit `enter()`.
+- [x] **Q5** — Graphviz export deferred to v0.2. Comment sketch left in `src/lib/fsm.zig` for the first implementer.
+- [x] **Q6** — migrate `Sleeping` → `state_machines/sleep_machine.zig` first, others follow.
+- [x] **Locality** — every machine lives in its own file under `state_machines/`, no size threshold.
+- [x] **Error model** — no runtime error union. `advance` returns `AdvanceResult`, `dispatch` returns `DispatchResult`, `.not_declared` / `.blocked_by_guard` are normal runtime conditions, debug multi-match asserts.
+- [x] **Events as first-class** — NG2 walked back. Transitions have an optional `event` field; `dispatch(event, ...)` handles discrete signals alongside `advance(...)` for polled conditions.
+- [x] **POC validation** — see `poc/` on `investigate/poc-zig-ecs`. 8/8 unit tests passing, runnable example against zig-ecs.
 
-- [x] **Q1** — labelle-fsm is a plugin, sibling to labelle-core, ships a `plugin.labelle` manifest declaring `state_machines/`. Depends on `labelle-cli/docs/RFC-plugin-manifest.md`. (closed)
-- [x] **Q2** — Context passed by value. Enforces "no transient state in Context" at the type level. (closed)
-- [x] **Q3** — first-match-wins at runtime + debug-mode exhaustive multi-match assertion + `overlap_allowed` opt-out. Most of the problem dissolves once events are first-class (see Proposed API). (closed)
-- [x] **Q4** — caller-explicit `enter()` (closed in discussion)
-- [x] **Q6** — migrate `Sleeping` → `state_machines/sleep_machine.zig` first, others follow (closed in discussion)
-- [x] **Locality** — every machine lives in its own file under `state_machines/`, no size threshold (closed in discussion)
-- [x] **Error model** — no runtime error union. `advance` returns `AdvanceResult`, `dispatch` returns `DispatchResult`, `.not_declared` / `.blocked_by_guard` are normal runtime conditions, debug multi-match asserts. (closed)
-- [x] **Events as first-class** — NG2 walked back. Transitions have an optional `event` field; `dispatch(event, ...)` handles discrete signals alongside `advance(...)` for polled conditions. (closed)
+### Blocking
 
-Once Q5 lands, and once the `labelle-cli` plugin-manifest RFC is approved and implemented, I can open a PR that creates the `labelle-fsm` plugin and migrates the first consumer.
+Landing the `labelle-cli` plugin-manifest RFC is the only thing standing between this RFC and implementation work. Once the CLI understands `plugin.labelle` with `convention_dirs`, the labelle-fsm rollout (see "Proposed rollout") can begin.
+
+### After implementation
+
+When labelle-fsm v0.1.0 ships:
+
+1. Merge `investigate/poc-zig-ecs` into `main` (or cherry-pick the POC's `src/lib/fsm.zig` into the real `src/root.zig`).
+2. Open the first consumer PR in `flying-platform-labelle` migrating `Sleeping.phase`.
+3. Write the ADR at `flying-platform-labelle/docs/ADR-fsm-conventions.md` once the first migration lands and the conventions are validated against real in-game code.
