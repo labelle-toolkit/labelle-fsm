@@ -8,10 +8,17 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     // The public module. Game projects depend on this via plugin
-    // resolution: the labelle-cli generator hardlinks the package into
-    // `.labelle/<backend>_<platform>/deps/labelle-fsm/` and exposes it
-    // to the build as `@import("labelle-fsm")`.
-    _ = b.addModule("labelle-fsm", .{
+    // resolution: labelle-cli's deps_linker hardlinks the package into
+    // `.labelle/<backend>_<platform>/deps/labelle-fsm/`, and the
+    // generated build.zig calls `plugin_fsm_dep.module("labelle_fsm")`
+    // to fetch the module. Game source then imports it by the plugin's
+    // short name, `@import("fsm")`, which labelle-cli wires up in the
+    // generated `addImport(.name = "fsm", ...)` call.
+    //
+    // Module name must be `labelle_fsm` (underscore) to match the
+    // generator's lookup. The shorter `@import("fsm")` in game code is
+    // a separate alias set by the CLI.
+    _ = b.addModule("labelle_fsm", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,

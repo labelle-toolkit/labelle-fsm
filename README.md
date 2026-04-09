@@ -34,7 +34,13 @@ The CLI will:
 
 ## Usage
 
-Per the convention recommended in the RFC, every machine lives in its own file under `state_machines/<domain>_machine.zig`. Each file exports the same five symbols:
+Per the convention recommended in the RFC, every machine lives in its own file under `state_machines/<domain>_machine.zig`. Game code imports the library via the plugin's short name from `project.labelle`:
+
+```zig
+const fsm = @import("fsm");
+```
+
+Each machine file exports the same five symbols:
 
 - `pub const Event` — discriminator for `dispatch`, or `enum {}` if the machine has none
 - `pub const Context` — what guards and actions receive (passed by value)
@@ -47,7 +53,7 @@ Minimal example:
 
 ```zig
 // state_machines/sleep_machine.zig
-const fsm = @import("labelle-fsm");
+const fsm = @import("fsm"); // short name from project.labelle's .plugins entry
 const SleepState = @import("../components/sleeping.zig").SleepState;
 
 pub const Event = enum { wake };
