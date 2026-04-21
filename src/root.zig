@@ -31,6 +31,14 @@
 //!
 //! See the `state_machines/` directory in your game project for the
 //! convention layout (one `<domain>_machine.zig` per machine).
+//!
+//! Plugin Controller (RFC-plugin-controllers §1/§2): the root module
+//! also re-exports `Controller`, `LabelleFsmState`, `Result`, `Reason`,
+//! and a `Components` struct. The assembler scans for these and wires
+//! `Controller.setup` / `Controller.deinit` into scene-load /
+//! scene-unload the same way it wires every other plugin's
+//! Controller. labelle-fsm has no per-frame work — `StateMachine`
+//! holds nothing at runtime — so the Controller is lifecycle-only.
 
 const std = @import("std");
 
@@ -244,6 +252,32 @@ pub fn StateMachine(
         }
     };
 }
+
+// ============================================================================
+// Plugin Controller (RFC-plugin-controllers §1/§2)
+// ============================================================================
+//
+// The assembler's `PluginControllers` dispatcher auto-wires
+// `Controller.setup` on scene load and `Controller.deinit` on scene
+// unload. No per-frame method — labelle-fsm is pure comptime, games
+// drive `StateMachine(...).advance / .dispatch` directly on their
+// machine instances (see design invariant #1 above).
+
+const controller_mod = @import("controller.zig");
+pub const Controller = controller_mod.Controller;
+pub const LabelleFsmState = controller_mod.LabelleFsmState;
+pub const Result = controller_mod.Result;
+pub const Reason = controller_mod.Reason;
+
+/// Components exported for ECS integration.
+/// Auto-discovered by the assembler when this plugin is declared.
+pub const Components = struct {
+    /// Singleton component holding the Controller's per-world
+    /// runtime state (RFC-plugin-controllers §6 primary pattern).
+    /// Transient — never persisted; rebuilt each scene load by
+    /// `Controller.setup`.
+    pub const LabelleFsmState = controller_mod.LabelleFsmState;
+};
 
 // ============================================================================
 // Tests
