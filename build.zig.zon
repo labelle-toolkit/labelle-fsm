@@ -2,7 +2,7 @@
     .name = .labelle_fsm,
     .version = "0.2.0",
     .fingerprint = 0x6f25539b89fd68cf,
-    .minimum_zig_version = "0.15.2",
+    .minimum_zig_version = "0.16.0",
     .dependencies = .{
         // Needed at Controller module level for the `SavePolicy` enum
         // used on `LabelleFsmState.save_policy`. Pinned v1.4 for test
