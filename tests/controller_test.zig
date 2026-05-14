@@ -14,12 +14,11 @@
 //! `controller.zig` so the engine's serializer skips it on save — the
 //! singleton is always rebuilt by `Controller.setup`. We deliberately
 //! do NOT force compilation of that constant here, because standalone
-//! `zig build test` uses labelle-core v1.4 from the cache (the
-//! version pinned in `build.zig.zon` for lib-test isolation), which
-//! predates the `SavePolicy` enum — introduced in v1.9 and overridden
-//! into the plugin's build graph by the assembler at game-build time.
-//! Forcing compilation of the `save_policy` constant from tests would
-//! fail against v1.4 despite the game build working correctly.
+//! `zig build test` uses the labelle-core dependency pinned in
+//! `build.zig.zon`, while the assembler overrides core into the
+//! plugin's build graph at game-build time. Keeping these tests to
+//! shape-only probes means they stay valid across that version skew
+//! without coupling themselves to a particular labelle-core tag.
 //! Coverage for the `.transient` contract lives in the game-level
 //! smoke test (save/load round-trip should produce a fresh
 //! singleton), same as `pathfinder.ControllerState`,
@@ -31,7 +30,8 @@
 //! `libs/production/tests/root.zig`, and
 //! `libs/worker_controller/tests/root.zig` all keep their Controller
 //! coverage to `@hasDecl` / `@typeName` lookups so the standalone
-//! build stays v1.4-safe. We follow the same policy.
+//! build stays resilient to labelle-core version skew. We follow the
+//! same policy.
 
 const std = @import("std");
 const fsm = @import("labelle_fsm");
@@ -40,7 +40,7 @@ test "plugin root exports Controller and LabelleFsmState" {
     // Compile-time assertion: the module exposes the public surface
     // the assembler's controller-discovery scans for. Accessing
     // `@hasDecl(...)` does NOT force compilation of the referenced
-    // decls, so this stays v1.4-safe.
+    // decls, so this stays resilient to labelle-core version skew.
     comptime {
         std.debug.assert(@hasDecl(fsm, "Controller"));
         std.debug.assert(@hasDecl(fsm, "LabelleFsmState"));
@@ -88,7 +88,7 @@ test "LabelleFsmState has the unique name (no collision with sibling plugins)" {
     // Lessons" comments under #213.
     //
     // `@typeName` on a type does not force compilation of its fields,
-    // so this stays v1.4-safe.
+    // so this stays resilient to labelle-core version skew.
     const name = @typeName(fsm.LabelleFsmState);
     try std.testing.expect(std.mem.indexOf(u8, name, "LabelleFsmState") != null);
 }
@@ -159,10 +159,9 @@ test "LabelleFsmState has a state_ptr field (type-erased storage)" {
 test "save_policy decl exists on LabelleFsmState (if core supports it)" {
     // Shape-only probe: assert the decl is declared, without forcing
     // its compilation. The `save_policy` constant references
-    // `core.SavePolicy` which only exists on labelle-core v1.9+; the
-    // plugin pins v1.4 for test isolation so the decl compiles at
-    // game-build time (where the assembler overrides core to v1.9+)
-    // but not necessarily standalone.
+    // `core.SavePolicy`; the plugin's standalone dependency can differ
+    // from the version the assembler injects at game-build time, so we
+    // keep this as a decl-existence probe rather than compiling it.
     //
     // `@hasDecl` is a lookup, not a compile — the decl's *name* is
     // present in the struct's declaration table regardless of
