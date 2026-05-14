@@ -82,15 +82,13 @@ const zlog = std.log.scoped(.labelle_fsm_controller);
 /// (design invariant #1 in `src/root.zig`); this singleton carries
 /// nothing that needs persisting.
 ///
-/// labelle-core version skew note (from #239 / #242 "Lessons"):
+/// labelle-core version-skew note (from #239 / #242 "Lessons"):
 /// standalone `zig build test` links against the plugin's pinned
-/// labelle-core v1.4 (pre-SavePolicy is v1.4 itself — `SavePolicy` was
-/// introduced in v1.9+). The assembler overrides labelle-core to the
-/// game's chosen version at game-build time. Tests in
-/// `tests/controller_test.zig` stay shape-only (`@hasDecl` /
-/// `@typeName`) so they never force compilation of the `save_policy`
-/// constant; referencing `core.SavePolicy` here compiles only when
-/// the overridden core actually exports it.
+/// labelle-core dependency from `build.zig.zon`, while the assembler
+/// overrides labelle-core to the game's chosen version at game-build
+/// time. Tests in `tests/controller_test.zig` stay shape-only
+/// (`@hasDecl` / `@typeName`) so they don't need to couple themselves
+/// to a specific labelle-core release policy.
 pub const LabelleFsmState = struct {
     pub const save_policy: core.SavePolicy = .transient;
 

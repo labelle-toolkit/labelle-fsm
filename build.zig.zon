@@ -2,17 +2,17 @@
     .name = .labelle_fsm,
     .version = "0.2.0",
     .fingerprint = 0x6f25539b89fd68cf,
-    .minimum_zig_version = "0.15.2",
+    .minimum_zig_version = "0.16.0",
     .dependencies = .{
         // Needed at Controller module level for the `SavePolicy` enum
-        // used on `LabelleFsmState.save_policy`. Pinned v1.4 for test
-        // isolation (matches `libs/needs_machine` and `libs/production`
-        // in flying-platform-labelle). The assembler overrides this
-        // import to the game's chosen labelle-core version at game-
-        // build time, so game builds pick up whatever the game uses.
+        // used on `LabelleFsmState.save_policy`. Pinned to the
+        // labelle-core Zig 0.16 migration branch until a release tag is
+        // available. The assembler overrides this import to the game's
+        // chosen labelle-core version at game-build time, so game builds
+        // pick up whatever the game uses.
         .@"labelle-core" = .{
-            .url = "https://github.com/labelle-toolkit/labelle-core/archive/refs/tags/v1.4.0.tar.gz",
-            .hash = "labelle_core-1.4.0-OauRcHj2AAC6Ogg88poj2HCFgj--EdHqBCyJOt-mn76p",
+            .url = "git+https://github.com/labelle-toolkit/labelle-core.git?ref=feat/zig-0.16-migration#58e6f46b9fbadc045d03190d3fe6d87ebb737f9b",
+            .hash = "labelle_core-1.12.0-OauRcB_UAQB5eBzggTDo77K9NZilrushKnR3kTOaKvRM",
         },
     },
     .paths = .{

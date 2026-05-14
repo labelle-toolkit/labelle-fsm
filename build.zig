@@ -12,9 +12,9 @@ pub fn build(b: *std.Build) void {
     // declaration. The assembler `overrideImport`s a matching
     // `labelle-core` module into the plugin's build graph at game-
     // build time; this standalone dependency keeps `zig build test`
-    // self-contained. Pinned v1.4 for test isolation (pre-SavePolicy)
-    // — see `tests/controller_test.zig` for the version-skew policy
-    // mirroring `libs/needs_machine` and `libs/production`.
+    // self-contained. Pinned to the labelle-core Zig 0.16 migration
+    // branch until a released tag is available — see
+    // `tests/controller_test.zig` for the shape-only test policy.
     const labelle_core_dep = b.dependency("labelle-core", .{
         .target = target,
         .optimize = optimize,
