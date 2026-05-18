@@ -55,6 +55,13 @@ test "incoming_call -> answer -> hang_up flow" {
     try testing.expectEqual(PhoneState.idle, p.state);
 }
 
+test "outbound: ringing_out -> in_call on remote_answered" {
+    var p = Phone{ .state = .ringing_out };
+    const r = Machine.dispatch(.remote_answered, &p.state, &p);
+    try testing.expect(r == .fired);
+    try testing.expectEqual(PhoneState.in_call, p.state);
+}
+
 test "hold / resume cycle" {
     var p = Phone{ .state = .in_call };
     _ = Machine.dispatch(.hold, &p.state, &p);

@@ -75,9 +75,16 @@ pub fn Define(comptime Context: type, comptime spec: anytype) type {
 /// `comptime Event: type` fields as the source of truth, instead of
 /// repeating those types at the machine declaration site.
 ///
-/// The component must declare both fields as `comptime` defaults — see
-/// `tests/v2/phone_component.zig` for the canonical shape. Missing
-/// either field is a comptime error.
+/// Pair this with the "C1" component shape — a component that declares
+/// `comptime State: type = MyStateEnum` / `comptime Event: type = MyEventEnum`
+/// as fields. Missing either field is a comptime error.
+///
+/// The in-tree phone / semaphore components use the more cohesive
+/// `Define` form (state and event declared inside the spec), not this
+/// helper — `BuildFor` is kept for the component-as-introspection-source
+/// pattern where some external generic system wants to walk
+/// `@typeInfo(Component).@"struct".fields` to discover the State enum
+/// uniformly across many component types.
 pub fn BuildFor(
     comptime ComponentT: type,
     comptime Context: type,
@@ -89,6 +96,22 @@ pub fn BuildFor(
         Context,
         spec,
     );
+}
+
+/// Comptime-assert that every tag value of `EnumT` equals its
+/// declaration index. The dispatch tables use raw arrays of size
+/// `enum.fields.len` indexed by `@intFromEnum(...)`, so a sparse or
+/// custom-valued enum would index out of bounds.
+fn assertDenseEnum(comptime EnumT: type, comptime role: []const u8) void {
+    inline for (@typeInfo(EnumT).@"enum".fields, 0..) |f, i| {
+        if (f.value != i) {
+            @compileError(role ++ " (" ++ @typeName(EnumT) ++
+                ") must be a dense zero-based enum; ." ++ f.name ++
+                " has tag value " ++ std.fmt.comptimePrint("{d}", .{f.value}) ++
+                " but declaration index is " ++ std.fmt.comptimePrint("{d}", .{i}) ++
+                ". Declare states with plain `enum { … }` (no explicit values).");
+        }
+    }
 }
 
 /// Read the default value of a `comptime <name>: type = ...` field on
@@ -115,6 +138,15 @@ pub fn Build(
     comptime Context: type,
     comptime spec: anytype,
 ) type {
+    // Variant_d uses raw `[state_count][event_count]` arrays indexed by
+    // `@intFromEnum(...)`. That's only safe when tag values are dense
+    // and zero-based, which is the default for plain `enum { ... }`
+    // declarations. Reject sparse / custom-valued enums at comptime
+    // with a clear message rather than letting them silently index
+    // past the array.
+    assertDenseEnum(State, "State");
+    assertDenseEnum(Event, "Event");
+
     const state_count = @typeInfo(State).@"enum".fields.len;
     const event_count = @typeInfo(Event).@"enum".fields.len;
     const EventSet = std.EnumSet(Event);

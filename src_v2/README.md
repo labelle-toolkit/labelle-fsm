@@ -48,16 +48,30 @@ Three entry points, same underlying machine:
 
 ## Comptime-enforced rules
 
+- **Dense State / Event enums.** State and Event must be plain
+  `enum { … }` declarations (dense, zero-based tags). The dispatch
+  table is a raw `[state_count][event_count]` array indexed by
+  `@intFromEnum`, so custom or sparse tag values would index past the
+  array. Sparse enums fail compilation with a clear message naming the
+  offending variant.
 - **Exhaustiveness on State.** Every variant must appear as a field of
   `.states`. Empty config `.idle = .{}` is the explicit "this state does
   nothing" marker — gaps fail compilation.
 - **No duplicate permits.** Declaring `(from, event)` twice fails to
   compile.
-- **No silently-ambiguous polled transitions.** Two unguarded `auto`
-  entries from the same state fail to compile (one would shadow the
-  other).
 - **Permit / ignore exclusion.** An event listed in both `.permit` and
   `.ignore` from the same state fails to compile.
+- **Malformed transition opts.** The optional 3rd tuple element of a
+  `permit` or `auto` entry must be a struct literal (`.{ .guard = … }`).
+  Passing any non-struct (e.g., a bare function pointer) fails with a
+  message naming the offending tuple position.
+
+Note: `auto` entries always carry a guard by construction (the first
+tuple element is the guard function), so there is no notion of an
+"unguarded auto." Multiple guarded `auto` entries from the same state
+with overlapping guard predicates are *allowed* — they're tried in
+declaration order, first match wins. Static overlap detection on
+runtime guards is not possible.
 
 ## Supported verbs
 

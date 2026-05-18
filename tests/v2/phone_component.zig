@@ -49,6 +49,7 @@ pub const Phone = struct {
             .ringing_out = .{
                 .permit = .{
                     .{ .hang_up, .idle },
+                    .{ .remote_answered, .in_call },
                 },
             },
             .ringing_in = .{
