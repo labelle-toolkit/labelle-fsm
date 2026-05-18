@@ -69,7 +69,62 @@ pub fn build(b: *std.Build) void {
 
     const controller_tests = b.addTest(.{ .root_module = controller_tests_mod });
 
+    // ── v2 prototypes (src_v2/, tests/v2/) ────────────────────────────────
+    // Stateless-flavored declarative FSM (variant_d) and the phone
+    // component / spec built against it. Wired into the same `test`
+    // step so `zig build test` exercises everything.
+    const variant_d_mod = b.createModule(.{
+        .root_source_file = b.path("src_v2/variant_d.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const variant_d_tests = b.addTest(.{ .root_module = variant_d_mod });
+
+    const phone_component_mod = b.createModule(.{
+        .root_source_file = b.path("tests/v2/phone_component.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    phone_component_mod.addImport("variant_d", variant_d_mod);
+    phone_component_mod.addImport("labelle-core", labelle_core_mod);
+
+    const phone_spec_mod = b.createModule(.{
+        .root_source_file = b.path("tests/v2/specs/phone_component_spec.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    phone_spec_mod.addImport("variant_d", variant_d_mod);
+    phone_spec_mod.addImport("phone_component", phone_component_mod);
+    phone_spec_mod.addImport("labelle-core", labelle_core_mod);
+
+    const phone_spec_tests = b.addTest(.{ .root_module = phone_spec_mod });
+
+    // Semaphore — external pattern: behavior in a sibling file, pulled
+    // in via a relative @import inside the component. No separate
+    // module needed for the behavior file because it shares the
+    // component module's source tree.
+    const semaphore_component_mod = b.createModule(.{
+        .root_source_file = b.path("tests/v2/semaphore_component.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    semaphore_component_mod.addImport("variant_d", variant_d_mod);
+    semaphore_component_mod.addImport("labelle-core", labelle_core_mod);
+
+    const semaphore_spec_mod = b.createModule(.{
+        .root_source_file = b.path("tests/v2/specs/semaphore_component_spec.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    semaphore_spec_mod.addImport("semaphore_component", semaphore_component_mod);
+    semaphore_spec_mod.addImport("labelle-core", labelle_core_mod);
+
+    const semaphore_spec_tests = b.addTest(.{ .root_module = semaphore_spec_mod });
+
     const test_step = b.step("test", "Run labelle-fsm library tests");
     test_step.dependOn(&b.addRunArtifact(lib_tests).step);
     test_step.dependOn(&b.addRunArtifact(controller_tests).step);
+    test_step.dependOn(&b.addRunArtifact(variant_d_tests).step);
+    test_step.dependOn(&b.addRunArtifact(phone_spec_tests).step);
+    test_step.dependOn(&b.addRunArtifact(semaphore_spec_tests).step);
 }

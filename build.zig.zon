@@ -5,14 +5,15 @@
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
         // Needed at Controller module level for the `SavePolicy` enum
-        // used on `LabelleFsmState.save_policy`. Pinned to the
-        // labelle-core Zig 0.16 migration branch until a release tag is
-        // available. The assembler overrides this import to the game's
-        // chosen labelle-core version at game-build time, so game builds
-        // pick up whatever the game uses.
+        // used on `LabelleFsmState.save_policy`, and for `Saveable` /
+        // `serde` consumed by v2 component round-trip tests. Pinned to
+        // v1.13.0 (first tag with the Zig 0.16 migration landed). The
+        // assembler overrides this import to the game's chosen
+        // labelle-core version at game-build time, so game builds pick
+        // up whatever the game uses.
         .@"labelle-core" = .{
-            .url = "git+https://github.com/labelle-toolkit/labelle-core.git?ref=feat/zig-0.16-migration#58e6f46b9fbadc045d03190d3fe6d87ebb737f9b",
-            .hash = "labelle_core-1.12.0-OauRcB_UAQB5eBzggTDo77K9NZilrushKnR3kTOaKvRM",
+            .url = "git+https://github.com/labelle-toolkit/labelle-core.git?ref=v1.13.0#a6516a2128a7fc1b7bebb467cf973188384d9dc1",
+            .hash = "labelle_core-1.13.0-OauRcPfTAQA1stEX2tEpNage5SiPaQnB-j40qY1yOA4S",
         },
     },
     .paths = .{
