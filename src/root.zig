@@ -1,7 +1,7 @@
 //! labelle-fsm — a serializable, comptime state-machine library for
 //! labelle games. See `RFC.md` at the repo root for the full design.
 //!
-//! Design invariants:
+//! Design invariants (v1 — `StateMachine(...)` below):
 //!   1. Per-instance state = the caller's State enum (plain value on a
 //!      component). The StateMachine struct holds only a comptime slice;
 //!      nothing is allocated per instance, nothing is heap-resident.
@@ -22,6 +22,13 @@
 //!   5. Multi-match safety: first-match-wins at runtime, debug build
 //!      adds an exhaustive check that panics on accidental overlap.
 //!      Authors opt out per transition with overlap_allowed = true.
+//!
+//! Note: v2 (`pub const v2 = @import("v2")` below) is a separate
+//! declarative API with its own design choices. It shares invariants
+//! (1) and (2) but deliberately relaxes (4) — v2's `Context` is
+//! commonly a pointer (`*MyComponent`), and actions mutate through it.
+//! v2 also moves multi-match safety (5) from runtime debug panics to
+//! comptime @compileError. See `src_v2/v2.zig` and `src_v2/README.md`.
 //!
 //! Usage from a labelle game project:
 //!

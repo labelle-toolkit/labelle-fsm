@@ -98,6 +98,35 @@ pub fn BuildFor(
     );
 }
 
+/// Comptime-assert that `value` is a struct (literal) whose field
+/// names are all in `allowed`. Used to reject typo'd field names in
+/// state configs and transition opts — `on_entry` (state-level) vs.
+/// `on_enter` (transition-level) is a real trap, and `@hasField`-style
+/// reads would silently no-op on a typo.
+fn assertOnlyKnownFields(
+    comptime value: anytype,
+    comptime allowed: []const []const u8,
+    comptime context: []const u8,
+) void {
+    const T = @TypeOf(value);
+    inline for (@typeInfo(T).@"struct".fields) |f| {
+        var ok = false;
+        inline for (allowed) |name| {
+            if (comptime std.mem.eql(u8, f.name, name)) {
+                ok = true;
+            }
+        }
+        if (!ok) {
+            comptime var allowed_list: []const u8 = "";
+            inline for (allowed, 0..) |name, i| {
+                allowed_list = allowed_list ++ (if (i == 0) "" else ", ") ++ name;
+            }
+            @compileError("unknown field ." ++ f.name ++ " in " ++ context ++
+                "; allowed fields: " ++ allowed_list);
+        }
+    }
+}
+
 /// Comptime-assert that every tag value of `EnumT` equals its
 /// declaration index. The dispatch tables use raw arrays of size
 /// `enum.fields.len` indexed by `@intFromEnum(...)`, so a sparse or
@@ -138,7 +167,13 @@ pub fn Build(
     comptime Context: type,
     comptime spec: anytype,
 ) type {
-    // Variant_d uses raw `[state_count][event_count]` arrays indexed by
+    if (@typeInfo(State) != .@"enum") {
+        @compileError("State must be an enum type, got " ++ @typeName(State));
+    }
+    if (@typeInfo(Event) != .@"enum") {
+        @compileError("Event must be an enum type, got " ++ @typeName(Event));
+    }
+    // v2 uses raw `[state_count][event_count]` arrays indexed by
     // `@intFromEnum(...)`. That's only safe when tag values are dense
     // and zero-based, which is the default for plain `enum { ... }`
     // declarations. Reject sparse / custom-valued enums at comptime
@@ -225,6 +260,16 @@ pub fn Build(
             const cfg = @field(spec.states, sf.name);
             const cfg_t = @TypeOf(cfg);
 
+            // Reject typo'd field names in the state config. The most
+            // dangerous footgun: state-level uses `on_entry` / `on_exit`,
+            // transition-level (inside permit/auto opts) uses `on_enter`
+            // / `on_exit`. A `.on_enter` here would silently no-op.
+            assertOnlyKnownFields(
+                cfg,
+                &.{ "on_entry", "on_exit", "permit", "auto", "ignore" },
+                "state config for ." ++ sf.name,
+            );
+
             // ── on_entry / on_exit (per-state) ──
             if (@hasField(cfg_t, "on_entry")) {
                 actions[si].on_entry = cfg.on_entry;
@@ -264,6 +309,11 @@ pub fn Build(
                             @compileError("permit opts (3rd tuple element) must be a struct literal " ++
                                 "like `.{ .guard = ... }`, got " ++ @typeName(ExtraT));
                         }
+                        assertOnlyKnownFields(
+                            extra,
+                            &.{ "guard", "on_exit", "on_enter" },
+                            "permit opts for ." ++ sf.name ++ " on ." ++ @tagName(event),
+                        );
                         if (@hasField(ExtraT, "guard")) guard = extra.guard;
                         if (@hasField(ExtraT, "on_exit")) tr_on_exit = extra.on_exit;
                         if (@hasField(ExtraT, "on_enter")) tr_on_enter = extra.on_enter;
@@ -303,6 +353,11 @@ pub fn Build(
                             @compileError("auto opts (3rd tuple element) must be a struct literal " ++
                                 "like `.{ .on_enter = ... }`, got " ++ @typeName(ExtraT));
                         }
+                        assertOnlyKnownFields(
+                            extra,
+                            &.{ "on_exit", "on_enter" },
+                            "auto opts for ." ++ sf.name,
+                        );
                         if (@hasField(ExtraT, "on_exit")) tr_on_exit = extra.on_exit;
                         if (@hasField(ExtraT, "on_enter")) tr_on_enter = extra.on_enter;
                     }
