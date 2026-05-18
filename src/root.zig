@@ -291,10 +291,20 @@ pub const Components = struct {
 // Game code reaches v2 as a sub-namespace:
 //
 //     const fsm = @import("fsm");
-//     const Machine = fsm.v2.Define(*MyComponent, .{
+//
+//     // `Define` returns a wrapper type with .State / .Event /
+//     // .Machine decls — not the machine itself. Pull the machine
+//     // out once:
+//     const _fsm = fsm.v2.Define(*MyComponent, .{
 //         .State = enum { ... }, .Event = enum { ... },
 //         .initial = .x, .states = .{ ... },
 //     });
+//     const Machine = _fsm.Machine;
+//     Machine.dispatch(.start, &my.state, &my);
+//
+//     // Or use `fsm.v2.Build(State, Event, Context, spec)` when the
+//     // State/Event enums are already declared separately — `Build`
+//     // returns the machine type directly.
 //
 // Resolves because `build.zig` wires the `v2` module into `fsm_mod`.
 // See `src_v2/v2.zig` and `src_v2/README.md` for the design and verbs.

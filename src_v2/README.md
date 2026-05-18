@@ -10,7 +10,14 @@ code uses it via:
 
 ```zig
 const fsm = @import("fsm");
-const Machine = fsm.v2.Define(*MyComponent, .{ ... });
+
+// `Define` returns a wrapper exposing .State / .Event / .Machine
+// decls. Pull out the machine type once and use it from there.
+const _fsm = fsm.v2.Define(*MyComponent, .{ ... });
+const Machine = _fsm.Machine;
+
+Machine.dispatch(.start, &my.state, &my);
+Machine.advance(&my.state, &my);
 ```
 
 The library lives entirely in `v2.zig`. v1 (`fsm.StateMachine(...)`)
@@ -21,7 +28,9 @@ component examples and their specs, all run by `zig build test`.
 ## 30-second tour
 
 ```zig
-const Machine = fsm.Build(MyState, MyEvent, *MyComponent, .{
+const fsm = @import("fsm");
+
+const Machine = fsm.v2.Build(MyState, MyEvent, *MyComponent, .{
     .initial = .idle,
     .states = .{
         .idle = .{
@@ -47,6 +56,10 @@ Machine.dispatch(.start, &my.state, &my);
 Machine.advance(&my.state, &my);
 ```
 
+`Build` returns the machine type directly (unlike `Define`, which
+returns a wrapper exposing `.State`, `.Event`, and `.Machine` decls
+when you want State and Event bundled inside the spec).
+
 Three entry points, same underlying machine:
 
 | Entry point | Use when |
@@ -66,8 +79,15 @@ Three entry points, same underlying machine:
 - **Exhaustiveness on State.** Every variant must appear as a field of
   `.states`. Empty config `.idle = .{}` is the explicit "this state does
   nothing" marker — gaps fail compilation.
+- **No unknown states in `.states`.** A field name in `.states` that
+  doesn't match any State variant (typo, stale name after a refactor)
+  fails compilation. Without this, a typo'd block would silently never
+  fire because the real variants are also present.
 - **No duplicate permits.** Declaring `(from, event)` twice fails to
   compile.
+- **Permit / auto tuple arity.** Entries must be exactly 2 or 3 elements.
+  An accidental 4-element tuple fails compilation instead of silently
+  dropping data.
 - **Permit / ignore exclusion.** An event listed in both `.permit` and
   `.ignore` from the same state fails to compile.
 - **Malformed transition opts.** The optional 3rd tuple element of a

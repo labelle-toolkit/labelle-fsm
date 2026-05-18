@@ -193,6 +193,25 @@ pub fn Build(
             }
         }
 
+        // Reverse check: every field in spec.states must correspond to
+        // a real State variant. Catches typos like `.idel = .{}` or
+        // stale state names left over from a refactor — without this
+        // they'd silently compile (because all real variants are also
+        // present) and the typo'd block would never fire.
+        for (@typeInfo(states_type).@"struct".fields) |spec_field| {
+            var found = false;
+            for (@typeInfo(State).@"enum".fields) |sf| {
+                if (std.mem.eql(u8, spec_field.name, sf.name)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                @compileError("unknown state ." ++ spec_field.name ++
+                    " in `.states` — not a variant of " ++ @typeName(State));
+            }
+        }
+
         var permits: [state_count][event_count]?Permit =
             .{.{null} ** event_count} ** state_count;
         var autos: [state_count][]const Auto = .{&.{}} ** state_count;
@@ -221,6 +240,11 @@ pub fn Build(
                 for (permit_fields, 0..) |_, i| {
                     const entry = permit_tup[i];
                     const entry_fields = @typeInfo(@TypeOf(entry)).@"struct".fields;
+                    if (entry_fields.len < 2 or entry_fields.len > 3) {
+                        @compileError("permit entry must be `.{ event, dest }` or " ++
+                            "`.{ event, dest, opts }` (2 or 3 elements), got " ++
+                            std.fmt.comptimePrint("{d}", .{entry_fields.len}));
+                    }
                     const event: Event = entry[0];
                     const dest: State = entry[1];
                     const ei = @intFromEnum(event);
@@ -262,6 +286,11 @@ pub fn Build(
                 for (auto_fields, 0..) |_, i| {
                     const entry = auto_tup[i];
                     const entry_fields = @typeInfo(@TypeOf(entry)).@"struct".fields;
+                    if (entry_fields.len < 2 or entry_fields.len > 3) {
+                        @compileError("auto entry must be `.{ guard, dest }` or " ++
+                            "`.{ guard, dest, opts }` (2 or 3 elements), got " ++
+                            std.fmt.comptimePrint("{d}", .{entry_fields.len}));
+                    }
                     const guard_fn: Guard = entry[0];
                     const dest: State = entry[1];
 

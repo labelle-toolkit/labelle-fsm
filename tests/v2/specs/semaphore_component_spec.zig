@@ -14,9 +14,10 @@ const Machine = Semaphore.Machine;
 const testing = std.testing;
 
 /// Wrapper matching `serde.writeComponent`'s expected
-/// `fn(type, []const u8) bool` signature. `skipFn`
+/// `fn(type, []const u8) bool` signature. `core.save_policy.shouldSkipField`
 /// declares its parameters `comptime`, which makes its function type
-/// strictly incompatible.
+/// strictly incompatible — so we inline the same logic here against the
+/// component's `save.skip_fields` declaration.
 fn skipFn(T: type, name: []const u8) bool {
     const skip = comptime core.save_policy.getSkipFields(T);
     inline for (skip) |s| {

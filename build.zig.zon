@@ -21,6 +21,7 @@
         "build.zig.zon",
         "plugin.labelle",
         "src",
+        "src_v2",
         "tests",
         "RFC.md",
         "README.md",
