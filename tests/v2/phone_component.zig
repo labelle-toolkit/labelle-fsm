@@ -4,7 +4,7 @@
 //! on `Phone`.
 
 const std = @import("std");
-const fsm = @import("variant_d");
+const fsm = @import("v2");
 const core = @import("labelle-core");
 
 pub const Phone = struct {

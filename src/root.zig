@@ -280,6 +280,28 @@ pub const Components = struct {
 };
 
 // ============================================================================
+// v2 — Stateless-flavored declarative FSM (opt-in, side-by-side with v1)
+// ============================================================================
+//
+// v1 (the `StateMachine(...)` generator above) and v2 are fully
+// independent — different type generators, different transition
+// representations, no name clashes. A game can use either or both,
+// and migrate machines one at a time.
+//
+// Game code reaches v2 as a sub-namespace:
+//
+//     const fsm = @import("fsm");
+//     const Machine = fsm.v2.Define(*MyComponent, .{
+//         .State = enum { ... }, .Event = enum { ... },
+//         .initial = .x, .states = .{ ... },
+//     });
+//
+// Resolves because `build.zig` wires the `v2` module into `fsm_mod`.
+// See `src_v2/v2.zig` and `src_v2/README.md` for the design and verbs.
+
+pub const v2 = @import("v2");
+
+// ============================================================================
 // Tests
 // ============================================================================
 
@@ -547,4 +569,16 @@ test "enter: runs on_enter for the initial state" {
     var entered = false;
     m.enter(.a, .{ .entered = &entered });
     try testing.expect(entered);
+}
+
+test "v2 re-export: namespace is reachable from the public module" {
+    // Smoke test for the `fsm.v2.*` surface promised in the doc comment
+    // above. Game code does `@import("fsm").v2.Define(...)` etc. — this
+    // test catches accidental drift in the wiring (build.zig forgetting
+    // the addImport, or the @import name desync'ing).
+    comptime {
+        _ = v2.Define;
+        _ = v2.Build;
+        _ = v2.BuildFor;
+    }
 }

@@ -1,13 +1,22 @@
-# src_v2 — Stateless-flavored declarative FSM (prototype)
+# v2 — Stateless-flavored declarative FSM
 
-Investigative successor to v1's flat transition table. Per-state config
-blocks bundle "what this state permits, what it ignores, what runs on
-entry/exit" in one place. Comptime walks the spec, builds an O(1)
-dispatch table, and rejects malformed configs with `@compileError`.
+Successor to v1's flat transition table. Per-state config blocks bundle
+"what this state permits, what it ignores, what runs on entry/exit" in
+one place. Comptime walks the spec, builds an O(1) dispatch table, and
+rejects malformed configs with `@compileError`.
 
-Not yet promoted to `src/`. The library lives entirely in
-`variant_d.zig`; `tests/v2/` holds two canonical component examples and
-their specs, all run by `zig build test`.
+Exposed publicly as a sub-namespace of the labelle-fsm module — game
+code uses it via:
+
+```zig
+const fsm = @import("fsm");
+const Machine = fsm.v2.Define(*MyComponent, .{ ... });
+```
+
+The library lives entirely in `v2.zig`. v1 (`fsm.StateMachine(...)`)
+remains available side-by-side; the two are fully independent so a game
+can migrate machines one at a time. `tests/v2/` holds two canonical
+component examples and their specs, all run by `zig build test`.
 
 ## 30-second tour
 
@@ -137,6 +146,7 @@ catches a regression.
 
 ## Status
 
-Investigative. See the open PR for findings, open questions, and the
-proposed migration path for existing v1 machines (`sleep_machine`,
-candidate `HungerCarry`).
+Public as `fsm.v2.*`. v1 (`fsm.StateMachine(...)`) remains the default
+for existing machines (e.g. `sleep_machine`); v2 is the recommended
+form for new machines and for migrations like the planned `HungerCarry`
+port.
