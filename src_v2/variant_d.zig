@@ -83,16 +83,30 @@ pub fn BuildFor(
     comptime Context: type,
     comptime spec: anytype,
 ) type {
-    if (!@hasField(ComponentT, "State")) {
-        @compileError(@typeName(ComponentT) ++
-            " is missing a `comptime State: type` field required by BuildFor");
+    return Build(
+        readComptimeFieldDefault(ComponentT, "State"),
+        readComptimeFieldDefault(ComponentT, "Event"),
+        Context,
+        spec,
+    );
+}
+
+/// Read the default value of a `comptime <name>: type = ...` field on
+/// the component. Unlike `ComponentT{}.<name>`, this does not require
+/// the component to be default-constructible (other runtime fields may
+/// lack defaults). Errors with a clear message if the field is missing
+/// or has no default.
+fn readComptimeFieldDefault(comptime ComponentT: type, comptime name: []const u8) type {
+    inline for (@typeInfo(ComponentT).@"struct".fields) |f| {
+        if (comptime std.mem.eql(u8, f.name, name)) {
+            const dp = f.default_value_ptr orelse @compileError(@typeName(ComponentT) ++
+                ".\"" ++ name ++ "\" must have a default value");
+            const typed: *const f.type = @ptrCast(@alignCast(dp));
+            return typed.*;
+        }
     }
-    if (!@hasField(ComponentT, "Event")) {
-        @compileError(@typeName(ComponentT) ++
-            " is missing a `comptime Event: type` field required by BuildFor");
-    }
-    const meta: ComponentT = .{};
-    return Build(meta.State, meta.Event, Context, spec);
+    @compileError(@typeName(ComponentT) ++
+        " is missing a `comptime " ++ name ++ ": type` field required by BuildFor");
 }
 
 pub fn Build(
@@ -147,14 +161,11 @@ pub fn Build(
             }
         }
 
-        var permits: [state_count][event_count]?Permit = blk: {
-            var t: [state_count][event_count]?Permit = undefined;
-            for (&t) |*row| row.* = .{null} ** event_count;
-            break :blk t;
-        };
+        var permits: [state_count][event_count]?Permit =
+            .{.{null} ** event_count} ** state_count;
         var autos: [state_count][]const Auto = .{&.{}} ** state_count;
-        var actions: [state_count]StateActions = undefined;
-        for (&actions) |*a| a.* = .{ .on_entry = null, .on_exit = null };
+        var actions: [state_count]StateActions =
+            .{StateActions{ .on_entry = null, .on_exit = null }} ** state_count;
         var ignored: [state_count]EventSet = .{EventSet.initEmpty()} ** state_count;
         var accepted: [state_count]EventSet = .{EventSet.initEmpty()} ** state_count;
 
@@ -187,18 +198,20 @@ pub fn Build(
                             " on ." ++ @tagName(event));
                     }
 
-                    const guard: ?Guard = if (entry_fields.len >= 3)
-                        if (@hasField(@TypeOf(entry[2]), "guard")) entry[2].guard else null
-                    else
-                        null;
-                    const tr_on_exit: ?Action = if (entry_fields.len >= 3)
-                        if (@hasField(@TypeOf(entry[2]), "on_exit")) entry[2].on_exit else null
-                    else
-                        null;
-                    const tr_on_enter: ?Action = if (entry_fields.len >= 3)
-                        if (@hasField(@TypeOf(entry[2]), "on_enter")) entry[2].on_enter else null
-                    else
-                        null;
+                    var guard: ?Guard = null;
+                    var tr_on_exit: ?Action = null;
+                    var tr_on_enter: ?Action = null;
+                    if (entry_fields.len >= 3) {
+                        const extra = entry[2];
+                        const ExtraT = @TypeOf(extra);
+                        if (@typeInfo(ExtraT) != .@"struct") {
+                            @compileError("permit opts (3rd tuple element) must be a struct literal " ++
+                                "like `.{ .guard = ... }`, got " ++ @typeName(ExtraT));
+                        }
+                        if (@hasField(ExtraT, "guard")) guard = extra.guard;
+                        if (@hasField(ExtraT, "on_exit")) tr_on_exit = extra.on_exit;
+                        if (@hasField(ExtraT, "on_enter")) tr_on_enter = extra.on_enter;
+                    }
 
                     permits[si][ei] = .{
                         .dest = dest,
@@ -220,14 +233,18 @@ pub fn Build(
                     const guard_fn: Guard = entry[0];
                     const dest: State = entry[1];
 
-                    const tr_on_exit: ?Action = if (entry_fields.len >= 3)
-                        if (@hasField(@TypeOf(entry[2]), "on_exit")) entry[2].on_exit else null
-                    else
-                        null;
-                    const tr_on_enter: ?Action = if (entry_fields.len >= 3)
-                        if (@hasField(@TypeOf(entry[2]), "on_enter")) entry[2].on_enter else null
-                    else
-                        null;
+                    var tr_on_exit: ?Action = null;
+                    var tr_on_enter: ?Action = null;
+                    if (entry_fields.len >= 3) {
+                        const extra = entry[2];
+                        const ExtraT = @TypeOf(extra);
+                        if (@typeInfo(ExtraT) != .@"struct") {
+                            @compileError("auto opts (3rd tuple element) must be a struct literal " ++
+                                "like `.{ .on_enter = ... }`, got " ++ @typeName(ExtraT));
+                        }
+                        if (@hasField(ExtraT, "on_exit")) tr_on_exit = extra.on_exit;
+                        if (@hasField(ExtraT, "on_enter")) tr_on_enter = extra.on_enter;
+                    }
 
                     autos[si] = autos[si] ++ &[_]Auto{.{
                         .guard = guard_fn,
