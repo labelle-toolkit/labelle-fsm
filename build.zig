@@ -39,6 +39,19 @@ pub fn build(b: *std.Build) void {
     });
     fsm_mod.addImport("labelle-core", labelle_core_mod);
 
+    // v2 module — the Stateless-flavored declarative FSM library
+    // (src_v2/v2.zig). Created here before lib_tests / fsm_mod wiring
+    // so both can import it. Game code reaches it via `fsm.v2.*`.
+    const v2_mod = b.createModule(.{
+        .root_source_file = b.path("src_v2/v2.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    // Expose `v2` as a public sub-namespace of the labelle-fsm module:
+    // `src/root.zig` does `pub const v2 = @import("v2");`, which only
+    // resolves because `fsm_mod` has this import wired.
+    fsm_mod.addImport("v2", v2_mod);
+
     // Library tests — exercise advance, dispatch, on_enter / on_exit,
     // first-match semantics, the debug-mode multi-match assertion, and
     // overlap_allowed suppression (all inline in `src/root.zig`). Run
@@ -50,6 +63,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
             .imports = &.{
                 .{ .name = "labelle-core", .module = labelle_core_mod },
+                .{ .name = "v2", .module = v2_mod },
             },
         }),
     });
@@ -69,7 +83,57 @@ pub fn build(b: *std.Build) void {
 
     const controller_tests = b.addTest(.{ .root_module = controller_tests_mod });
 
+    // ── v2 tests + canonical component examples (tests/v2/) ──────────────
+    // Inline tests for src_v2/v2.zig plus the phone / semaphore
+    // components built against it. The v2 module itself is created
+    // above (it's shared with `fsm_mod` so `fsm.v2.*` re-exports work).
+    const v2_tests = b.addTest(.{ .root_module = v2_mod });
+
+    const phone_component_mod = b.createModule(.{
+        .root_source_file = b.path("tests/v2/phone_component.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    phone_component_mod.addImport("v2", v2_mod);
+    phone_component_mod.addImport("labelle-core", labelle_core_mod);
+
+    const phone_spec_mod = b.createModule(.{
+        .root_source_file = b.path("tests/v2/specs/phone_component_spec.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    phone_spec_mod.addImport("v2", v2_mod);
+    phone_spec_mod.addImport("phone_component", phone_component_mod);
+    phone_spec_mod.addImport("labelle-core", labelle_core_mod);
+
+    const phone_spec_tests = b.addTest(.{ .root_module = phone_spec_mod });
+
+    // Semaphore — external pattern: behavior in a sibling file, pulled
+    // in via a relative @import inside the component. No separate
+    // module needed for the behavior file because it shares the
+    // component module's source tree.
+    const semaphore_component_mod = b.createModule(.{
+        .root_source_file = b.path("tests/v2/semaphore_component.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    semaphore_component_mod.addImport("v2", v2_mod);
+    semaphore_component_mod.addImport("labelle-core", labelle_core_mod);
+
+    const semaphore_spec_mod = b.createModule(.{
+        .root_source_file = b.path("tests/v2/specs/semaphore_component_spec.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    semaphore_spec_mod.addImport("semaphore_component", semaphore_component_mod);
+    semaphore_spec_mod.addImport("labelle-core", labelle_core_mod);
+
+    const semaphore_spec_tests = b.addTest(.{ .root_module = semaphore_spec_mod });
+
     const test_step = b.step("test", "Run labelle-fsm library tests");
     test_step.dependOn(&b.addRunArtifact(lib_tests).step);
     test_step.dependOn(&b.addRunArtifact(controller_tests).step);
+    test_step.dependOn(&b.addRunArtifact(v2_tests).step);
+    test_step.dependOn(&b.addRunArtifact(phone_spec_tests).step);
+    test_step.dependOn(&b.addRunArtifact(semaphore_spec_tests).step);
 }
